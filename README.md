@@ -131,4 +131,4 @@ Run the `infer_mdt.py` to generate images.
 
 # Acknowledgement
 
-This codebase is built based on the [DiT](https://github.com/facebookresearch/mae) and [ADM](https://github.com/openai/guided-diffusion). Thanks!
+This codebase is built based on the [DiT](https://github.com/facebookresearch/dit) and [ADM](https://github.com/openai/guided-diffusion). Thanks!
