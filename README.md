@@ -1,6 +1,8 @@
 # Masked Diffusion Transformer
+	
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/masked-diffusion-transformer-is-a-strong/image-generation-on-imagenet-256x256)](https://paperswithcode.com/sota/image-generation-on-imagenet-256x256?p=masked-diffusion-transformer-is-a-strong)
 
-The official codebase for [Masked Diffusion Transformer is a Strong Image Synthesizer]().
+The official codebase for [Masked Diffusion Transformer is a Strong Image Synthesizer](https://arxiv.org/abs/2303.14389).
 
 ## Introduction
 
@@ -126,7 +128,14 @@ Run the `infer_mdt.py` to generate images.
 # Citation
 
 ```
-
+@misc{gao2023masked,
+      title={Masked Diffusion Transformer is a Strong Image Synthesizer}, 
+      author={Shanghua Gao and Pan Zhou and Ming-Ming Cheng and Shuicheng Yan},
+      year={2023},
+      eprint={2303.14389},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
 ```
 
 # Acknowledgement
