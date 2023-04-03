@@ -31,6 +31,11 @@ cd MDT
 pip install -e .
 ```
 
+**DATA** 
+- For standard datasets like ImageNet and CIFAR, please refer to '[dataset](https://github.com/sail-sg/MDT/tree/main/datasets)' for preparation.
+- When using customized dataset, change the image file name to `ClassID_ImgID.jpg`,
+as the [ADM's dataloder](https://github.com/openai/guided-diffusion) gets the class ID from the file name. 
+
 # Training
 
 <details>
