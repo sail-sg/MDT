@@ -1,6 +1,7 @@
 # Masked Diffusion Transformer
-	
+
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/masked-diffusion-transformer-is-a-strong/image-generation-on-imagenet-256x256)](https://paperswithcode.com/sota/image-generation-on-imagenet-256x256?p=masked-diffusion-transformer-is-a-strong)
+[![HuggingFace space](https://img.shields.io/badge/🤗-HuggingFace%20Space-cyan.svg)]([https://huggingface.co/spaces/shgao/EditAnything](https://huggingface.co/spaces/shgao/MDT))
 
 The official codebase for [Masked Diffusion Transformer is a Strong Image Synthesizer](https://arxiv.org/abs/2303.14389).
 
@@ -19,6 +20,16 @@ Experimental results show that MDT achieves superior image synthesis performance
 | Model| Dataset |  Resolution | FID-50K | Inception Score |
 |---------|----------|-----------|---------|--------|
 |MDT-XL/2 | ImageNet | 256x256   | 1.79    | 283.01|
+
+[Pretrained model download](https://huggingface.co/shgao/MDT-XL2/tree/main)
+
+Model is hosted on hugglingface, you can also download it with:
+```
+from huggingface_hub import snapshot_download
+models_path = snapshot_download("shgao/MDT-XL2")
+ckpt_model_path = os.path.join(models_path, "mdt_xl2_v1_ckpt.pt")
+```
+A hugglingface demo is on [DEMO](https://huggingface.co/spaces/shgao/MDT).
 
 **NEW SOTA on FID.**
 # Setup
