@@ -8,23 +8,23 @@ import torch
 from torchvision.utils import save_image
 from masked_diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
-from masked_diffusion.models import MDT_XL_2
+from masked_diffusion.models import MDTv2_XL_2
 
 
 # Setup PyTorch:
-torch.manual_seed(0)
+torch.manual_seed(1)
 torch.set_grad_enabled(False)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-num_sampling_steps = 500
-cfg_scale = 5.0
+num_sampling_steps = 250
+cfg_scale = 4.0
 pow_scale = 0.01 # large pow_scale increase the diversity, small pow_scale increase the quality.
-model_path = 'mdt_xl2_v1_ckpt.pt'
+model_path = 'mdt_xl2_v2_ckpt.pt'
 
 # Load model:
 image_size = 256
 assert image_size in [256], "We provide pre-trained models for 256x256 resolutions for now."
 latent_size = image_size // 8
-model = MDT_XL_2(input_size=latent_size, decode_layer=2).to(device)
+model = MDTv2_XL_2(input_size=latent_size, decode_layer=2).to(device)
 
 state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
 model.load_state_dict(state_dict)
@@ -33,7 +33,7 @@ diffusion = create_diffusion(str(num_sampling_steps))
 vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse").to(device)
 
 # Labels to condition the model with:
-class_labels = [208]*3
+class_labels = [19,23,106,108,278,282]
 
 # Create sampling noise:
 n = len(class_labels)

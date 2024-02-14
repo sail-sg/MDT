@@ -28,6 +28,7 @@ class ModelMeanType(enum.Enum):
     PREVIOUS_X = enum.auto()  # the model predicts x_{t-1}
     START_X = enum.auto()  # the model predicts x_0
     EPSILON = enum.auto()  # the model predicts epsilon
+    VELOCITY = enum.auto() # the model predicts v
 
 
 class ModelVarType(enum.Enum):
@@ -732,6 +733,26 @@ class GaussianDiffusion:
 
         terms = {}
 
+
+        mse_loss_weight = None
+        alpha = _extract_into_tensor(self.sqrt_alphas_cumprod, t, t.shape)
+        sigma = _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, t.shape)
+        snr = (alpha / sigma) ** 2
+        
+        velocity = (alpha[:, None, None, None] * x_t - x_start) / sigma[:, None, None, None]
+
+        # get loss weight
+        if self.model_mean_type is not ModelMeanType.START_X:
+            mse_loss_weight = th.ones_like(t)
+            k = 5.0
+            # min{snr, k}
+            mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).min(dim=1)[0] / snr
+        else:
+            k = 5.0
+            # min{snr, k}
+            mse_loss_weight = th.stack([snr, k * th.ones_like(t)], dim=1).min(dim=1)[0]
+
+            
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
             terms["loss"] = self._vb_terms_bpd(
                 model=model,
@@ -774,9 +795,10 @@ class GaussianDiffusion:
                 )[0],
                 ModelMeanType.START_X: x_start,
                 ModelMeanType.EPSILON: noise,
+                ModelMeanType.VELOCITY: velocity,
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape
-            terms["mse"] = mean_flat((target - model_output) ** 2)
+            terms["mse"] = mse_loss_weight * mean_flat((target - model_output) ** 2)
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
             else:

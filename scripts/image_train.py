@@ -72,20 +72,21 @@ def create_argparser():
         batch_size=1,
         microbatch=-1,  # -1 disables microbatches
         ema_rate="0.9999",  # comma-separated list of EMA values
-        log_interval=10,
+        log_interval=500,
         save_interval=10000,
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
-        model="MDT_S_2",
+        model="MDTv2_S_2",
         mask_ratio=None,
-        decode_layer=None,
+        decode_layer=4,
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--local_rank', default=-1, type=int)
+    parser.add_argument('--local-rank', default=-1, type=int)
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')

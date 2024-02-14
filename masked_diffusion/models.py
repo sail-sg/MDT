@@ -1,14 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# GLIDE: https://github.com/openai/glide-text2im
-# MAE: https://github.com/facebookresearch/mae/blob/main/models_mae.py
-# --------------------------------------------------------
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -16,7 +5,6 @@ import math
 from timm.models.vision_transformer import PatchEmbed, Mlp
 from timm.models.layers import trunc_normal_
 import math
-
 
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
@@ -198,10 +186,10 @@ class LabelEmbedder(nn.Module):
 
 class MDTBlock(nn.Module):
     """
-    A MDT block with adaptive layer norm zero (adaLN-Zero) conMDTioning.
+    A MDT block with adaptive layer norm zero (adaLN-Zero) conditioning.
     """
 
-    def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
+    def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, skip=False, **block_kwargs):
         super().__init__()
         self.norm1 = nn.LayerNorm(
             hidden_size, elementwise_affine=False, eps=1e-6)
@@ -217,8 +205,11 @@ class MDTBlock(nn.Module):
             nn.SiLU(),
             nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
+        self.skip_linear = nn.Linear(2 * hidden_size, hidden_size) if skip else None
 
-    def forward(self, x, c, ids_keep=None):
+    def forward(self, x, c, skip=None, ids_keep=None):
+        if self.skip_linear is not None:
+            x = self.skip_linear(torch.cat([x, skip], dim=-1))
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(
             c).chunk(6, dim=1)
         x = x + gate_msa.unsqueeze(1) * self.attn(
@@ -252,9 +243,9 @@ class FinalLayer(nn.Module):
         return x
 
 
-class MDT(nn.Module):
+class MDTv2(nn.Module):
     """
-    Diffusion model with a Transformer backbone.
+    Masked Diffusion Transformer v2.
     """
 
     def __init__(
@@ -270,7 +261,7 @@ class MDT(nn.Module):
         num_classes=1000,
         learn_sigma=True,
         mask_ratio=None,
-        decode_layer=None,
+        decode_layer=4,
     ):
         super().__init__()
         self.learn_sigma = learn_sigma
@@ -278,6 +269,7 @@ class MDT(nn.Module):
         self.out_channels = in_channels * 2 if learn_sigma else in_channels
         self.patch_size = patch_size
         self.num_heads = num_heads
+        decode_layer = int(decode_layer)
 
         self.x_embedder = PatchEmbed(
             input_size, patch_size, in_channels, hidden_size, bias=True)
@@ -289,8 +281,17 @@ class MDT(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(
             1, num_patches, hidden_size), requires_grad=True)
 
-        self.blocks = nn.ModuleList([
-            MDTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio, num_patches=num_patches) for _ in range(depth)
+        half_depth = (depth - decode_layer)//2
+        self.half_depth=half_depth
+        
+        self.en_inblocks = nn.ModuleList([
+            MDTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio, num_patches=num_patches) for _ in range(half_depth)
+        ])
+        self.en_outblocks = nn.ModuleList([
+            MDTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio, num_patches=num_patches, skip=True) for _ in range(half_depth)
+        ])
+        self.de_blocks = nn.ModuleList([
+            MDTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio, num_patches=num_patches, skip=True) for i in range(decode_layer)
         ])
         self.sideblocks = nn.ModuleList([
             MDTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio, num_patches=num_patches) for _ in range(1)
@@ -309,8 +310,7 @@ class MDT(nn.Module):
                 1, 1, hidden_size), requires_grad=False)
             self.mask_ratio = None
             self.decode_layer = int(decode_layer)
-        print("mask ratio:", self.mask_ratio,
-              "decode_layer:", self.decode_layer)
+        print("mask ratio:", self.mask_ratio, "decode_layer:", self.decode_layer)
         self.initialize_weights()
 
     def initialize_weights(self):
@@ -345,8 +345,15 @@ class MDT(nn.Module):
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
         nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
 
-        # Zero-out adaLN modulation layers in MDT blocks:
-        for block in self.blocks:
+        for block in self.en_inblocks:
+            nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
+            nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
+
+        for block in self.en_outblocks:
+            nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
+            nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
+
+        for block in self.de_blocks:
             nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
 
@@ -444,33 +451,50 @@ class MDT(nn.Module):
         y = self.y_embedder(y, self.training)    # (N, D)
         c = t + y                                # (N, D)
 
-        masked_stage = False
 
+        input_skip = x
+
+        masked_stage = False
+        skips = []
         # masking op for training
         if self.mask_ratio is not None and enable_mask:
             # masking: length -> length * mask_ratio
+            rand_mask_ratio = torch.rand(1, device=x.device)  # noise in [0, 1]
+            rand_mask_ratio = rand_mask_ratio * 0.2 + self.mask_ratio # mask_ratio, mask_ratio + 0.2 
+            # print(rand_mask_ratio)
             x, mask, ids_restore, ids_keep = self.random_masking(
-                x, self.mask_ratio)
+                x, rand_mask_ratio)
             masked_stage = True
 
-        for i in range(len(self.blocks)):
-            if i == (len(self.blocks) - self.decode_layer):
-                if self.mask_ratio is not None and enable_mask:
-                    x = self.forward_side_interpolater(x, c, mask, ids_restore)
-                    masked_stage = False
-                else:
-                    # add pos embed
-                    x = x + self.decoder_pos_embed
 
-            block = self.blocks[i]
+        for block in self.en_inblocks:
             if masked_stage:
                 x = block(x, c, ids_keep=ids_keep)
             else:
                 x = block(x, c, ids_keep=None)
+            skips.append(x)
 
-        # (N, T, patch_size ** 2 * out_channels)
+        for block in self.en_outblocks:
+            if masked_stage:
+                x = block(x, c, skip=skips.pop(), ids_keep=ids_keep)
+            else:
+                x = block(x, c, skip=skips.pop(), ids_keep=None)
+
+        if self.mask_ratio is not None and enable_mask:
+            x = self.forward_side_interpolater(x, c, mask, ids_restore)
+            masked_stage = False
+        else:
+            # add pos embed
+            x = x + self.decoder_pos_embed
+
+        for i in range(len(self.de_blocks)):
+            block = self.de_blocks[i]
+            this_skip = input_skip
+
+            x = block(x, c, skip=this_skip, ids_keep=None)
+
         x = self.final_layer(x, c)
-        x = self.unpatchify(x)                   # (N, out_channels, H, W)
+        x = self.unpatchify(x)  # (N, out_channels, H, W)
         return x
 
 
@@ -560,52 +584,18 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
 
 
 #################################################################################
-#                                   MDT Configs                                  #
+#                                   MDTv2 Configs                               #
 #################################################################################
 
-def MDT_XL_2(**kwargs):
-    return MDT(depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs)
+def MDTv2_XL_2(**kwargs):
+    return MDTv2(depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs)
 
+def MDTv2_L_2(**kwargs):
+    return MDTv2(depth=24, hidden_size=1024, patch_size=2, num_heads=16, **kwargs)
 
-def MDT_XL_4(**kwargs):
-    return MDT(depth=28, hidden_size=1152, patch_size=4, num_heads=16, **kwargs)
+def MDTv2_B_2(**kwargs):
+    return MDTv2(depth=12, hidden_size=768, patch_size=2, num_heads=12, **kwargs)
 
+def MDTv2_S_2(**kwargs):
+    return MDTv2(depth=12, hidden_size=384, patch_size=2, num_heads=6, **kwargs)
 
-def MDT_XL_8(**kwargs):
-    return MDT(depth=28, hidden_size=1152, patch_size=8, num_heads=16, **kwargs)
-
-
-def MDT_L_2(**kwargs):
-    return MDT(depth=24, hidden_size=1024, patch_size=2, num_heads=16, **kwargs)
-
-
-def MDT_L_4(**kwargs):
-    return MDT(depth=24, hidden_size=1024, patch_size=4, num_heads=16, **kwargs)
-
-
-def MDT_L_8(**kwargs):
-    return MDT(depth=24, hidden_size=1024, patch_size=8, num_heads=16, **kwargs)
-
-
-def MDT_B_2(**kwargs):
-    return MDT(depth=12, hidden_size=768, patch_size=2, num_heads=12, **kwargs)
-
-
-def MDT_B_4(**kwargs):
-    return MDT(depth=12, hidden_size=768, patch_size=4, num_heads=12, **kwargs)
-
-
-def MDT_B_8(**kwargs):
-    return MDT(depth=12, hidden_size=768, patch_size=8, num_heads=12, **kwargs)
-
-
-def MDT_S_2(**kwargs):
-    return MDT(depth=12, hidden_size=384, patch_size=2, num_heads=6, **kwargs)
-
-
-def MDT_S_4(**kwargs):
-    return MDT(depth=12, hidden_size=384, patch_size=4, num_heads=6, **kwargs)
-
-
-def MDT_S_8(**kwargs):
-    return MDT(depth=12, hidden_size=384, patch_size=8, num_heads=6, **kwargs)

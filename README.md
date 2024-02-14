@@ -1,9 +1,12 @@
-# Masked Diffusion Transformer
+# Masked Diffusion Transformer V2
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/masked-diffusion-transformer-is-a-strong/image-generation-on-imagenet-256x256)](https://paperswithcode.com/sota/image-generation-on-imagenet-256x256?p=masked-diffusion-transformer-is-a-strong)
 [![HuggingFace space](https://img.shields.io/badge/🤗-HuggingFace%20Space-cyan.svg)](https://huggingface.co/spaces/shgao/MDT)
 
 The official codebase for [Masked Diffusion Transformer is a Strong Image Synthesizer](https://arxiv.org/abs/2303.14389).
+
+## MDTv2: Faster Convergeence & Stronger performance
+**MDTv2 demonstrates new SOTA (State of the Art) performance and a 5x acceleration compared to the original MDT.**
 
 ## Introduction
 
@@ -20,6 +23,7 @@ Experimental results show that MDT achieves superior image synthesis performance
 | Model| Dataset |  Resolution | FID-50K | Inception Score |
 |---------|----------|-----------|---------|--------|
 |MDT-XL/2 | ImageNet | 256x256   | 1.79    | 283.01|
+|MDTv2-XL/2 | ImageNet | 256x256 | 1.58    | 314.73|
 
 [Pretrained model download](https://huggingface.co/shgao/MDT-XL2/tree/main)
 
@@ -53,10 +57,10 @@ as the [ADM's dataloder](https://github.com/openai/guided-diffusion) gets the cl
   <summary>Training on one node (`run.sh`). </summary>
 
 ```shell
-export OPENAI_LOGDIR=output_mdt_s2
+export OPENAI_LOGDIR=output_mdtv2_s2
 NUM_GPUS=8
 
-MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDT_S_2"
+MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 4 --model MDTv2_S_2"
 DIFFUSION_FLAGS="--diffusion_steps 1000"
 TRAIN_FLAGS="--batch_size 32"
 DATA_PATH=/dataset/imagenet
@@ -71,8 +75,8 @@ python -m torch.distributed.launch --nproc_per_node=$NUM_GPUS scripts/image_trai
 
 ```shell
 # On master:
-export OPENAI_LOGDIR=output_mdt_xl2
-MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDT_XL_2"
+export OPENAI_LOGDIR=output_mdtv2_xl2
+MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDTv2_XL_2"
 DIFFUSION_FLAGS="--diffusion_steps 1000"
 TRAIN_FLAGS="--batch_size 4"
 DATA_PATH=/dataset/imagenet
@@ -82,8 +86,8 @@ GPU_PRE_NODE=8
 python -m torch.distributed.launch --master_addr=$(hostname) --nnodes=$NUM_NODE --node_rank=$RANK --nproc_per_node=$GPU_PRE_NODE --master_port=$MASTER_PORT scripts/image_train.py --data_dir $DATA_PATH $MODEL_FLAGS $DIFFUSION_FLAGS $TRAIN_FLAGS
 
 # On workers:
-export OPENAI_LOGDIR=output_mdt_xl2
-MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDT_XL_2"
+export OPENAI_LOGDIR=output_mdtv2_xl2
+MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDTv2_XL_2"
 DIFFUSION_FLAGS="--diffusion_steps 1000"
 TRAIN_FLAGS="--batch_size 4"
 DATA_PATH=/dataset/imagenet
@@ -106,12 +110,12 @@ Please follow the instructions in the `evaluations` folder to set up the evaluat
   <summary>Sampling and Evaluation (`run_sample.sh`): </summary>
 
 ```shell
-MODEL_PATH=output_mdt_xl2/mdt_xl2_v1_ckpt.pt
-export OPENAI_LOGDIR=output_mdt_xl2_eval
+MODEL_PATH=output_mdtv2_xl2/mdt_xl2_v2_ckpt.pt
+export OPENAI_LOGDIR=output_mdtv2_xl2_eval
 NUM_GPUS=8
 
 echo 'CFG Class-conditional sampling:'
-MODEL_FLAGS="--image_size 256 --model MDT_XL_2 --decode_layer 2"
+MODEL_FLAGS="--image_size 256 --model MDTv2_XL_2 --decode_layer 4"
 DIFFUSION_FLAGS="--num_sampling_steps 250 --num_samples 50000  --cfg_cond True"
 echo $MODEL_FLAGS
 echo $DIFFUSION_FLAGS
@@ -123,7 +127,7 @@ echo $MODEL_PATH
 python evaluations/evaluator.py ../dataeval/VIRTUAL_imagenet256_labeled.npz $OPENAI_LOGDIR/samples_50000x256x256x3.npz
 
 echo 'Class-conditional sampling:'
-MODEL_FLAGS="--image_size 256 --model MDT_XL_2 --decode_layer 2"
+MODEL_FLAGS="--image_size 256 --model MDTv2_XL_2 --decode_layer 4"
 DIFFUSION_FLAGS="--num_sampling_steps 250 --num_samples 50000"
 echo $MODEL_FLAGS
 echo $DIFFUSION_FLAGS

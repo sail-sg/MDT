@@ -49,6 +49,7 @@ def main():
     print(config_diffusion)
     diffusion = create_diffusion(**config_diffusion)
     model.to(dist_util.dev())
+    model = th.compile(model)
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
@@ -111,7 +112,7 @@ def main():
             ]
             dist.all_gather(gathered_labels, classes)
             all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
-        logger.log(f"created {len(all_images) * args.batch_size} samples")
+        # logger.log(f"created {len(all_images) * args.batch_size} samples")
 
     arr = np.concatenate(all_images, axis=0)
     arr = arr[: args.num_samples]
@@ -152,6 +153,7 @@ def create_argparser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--local_rank', default=-1, type=int)
+    parser.add_argument('--local-rank', default=-1, type=int)
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')

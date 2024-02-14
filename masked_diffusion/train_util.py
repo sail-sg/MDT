@@ -13,6 +13,8 @@ from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
 from diffusers.models import AutoencoderKL
+from adan import Adan
+from torch.distributed.optim import ZeroRedundancyOptimizer
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
 # 20-21 within the first ~1K steps of training.
@@ -39,6 +41,8 @@ class TrainLoop:
         weight_decay=0.0,
         lr_anneal_steps=0,
         scale_factor=0.18215, # scale_factor follows DiT and stable diffusion.
+        opt_type='adan',
+        use_zero=True,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -73,10 +77,32 @@ class TrainLoop:
             use_fp16=self.use_fp16,
             fp16_scale_growth=fp16_scale_growth,
         )
+        
+        if opt_type=='adamw':
+            if use_zero:
+                self.opt = ZeroRedundancyOptimizer(
+                    self.mp_trainer.master_params,
+                    optimizer_class=Adam,
+                    lr=self.lr,
+                     weight_decay=self.weight_decay
+                )
+            else:
+                self.opt = AdamW(
+                    self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
+                )
+        elif opt_type=='adan':
+            if use_zero:
+                self.opt = ZeroRedundancyOptimizer(
+                    self.mp_trainer.master_params,
+                    optimizer_class=Adan,
+                    lr=self.lr,
+                    weight_decay=self.weight_decay,
+                    max_grad_norm=1, fused=True
+                )
+            else:
+                self.opt = Adan(
+                    self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay, max_grad_norm=1, fused=True)
 
-        self.opt = AdamW(
-            self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
-        )
         if self.resume_step:
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
@@ -113,6 +139,7 @@ class TrainLoop:
 
     def instantiate_first_stage(self):
         model = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse").to(dist_util.dev())
+        model = th.compile(model)
         self.first_stage_model = model.eval()
         self.first_stage_model.train = False
         for param in self.first_stage_model.parameters():
@@ -179,6 +206,7 @@ class TrainLoop:
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
+                self.opt.consolidate_state_dict()
                 self.save()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
