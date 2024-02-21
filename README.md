@@ -16,7 +16,8 @@ Despite its success in image synthesis, we observe that diffusion probabilistic 
 During training, MDT operates in the latent space to mask certain tokens. Then, an asymmetric diffusion transformer is designed to predict masked tokens from unmasked ones while maintaining the diffusion generation process. Our MDT can reconstruct the full information of an image from its incomplete contextual input, thus enabling it to learn the associated relations among image tokens. We further improve MDT with a more efficient macro network structure and training strategy, named MDTv2. 
 
 Experimental results show that MDTv2 achieves superior image synthesis performance, e.g., **a new SOTA FID score of 1.58 on the ImageNet dataset, and has more than 10× faster learning speed than the previous SOTA DiT**. 
-<img width="400" alt="image" src="figures/vis.jpg">
+
+<img width="800" alt="image" src="figures/vis.jpg">
 
 # Performance
 
