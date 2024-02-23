@@ -6,7 +6,9 @@
 The official codebase for [Masked Diffusion Transformer is a Strong Image Synthesizer](https://arxiv.org/abs/2303.14389).
 
 ## MDTv2: Faster Convergeence & Stronger performance
-**MDTv2 demonstrates new State of the Art performance and a 5x acceleration compared to the original MDT.**
+**MDTv2 achieves superior image synthesis performance, e.g., a new SOTA FID score of 1.58 on the ImageNet dataset, and has more than 10× faster learning speed than the previous SOTA DiT.**
+
+MDTv2 demonstrates a 5x acceleration compared to the original MDT.
 
 [MDTv1 code](https://github.com/sail-sg/MDT/tree/mdtv1)
 ## Introduction
