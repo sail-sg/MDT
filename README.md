@@ -41,7 +41,7 @@ A hugglingface demo is on [DEMO](https://huggingface.co/spaces/shgao/MDT).
 **NEW SOTA on FID.**
 # Setup
 
-Prepare the Pytorch 1.13 version. Download and install this repo.
+Prepare the Pytorch >=2.0 version. Download and install this repo.
 
 ```
 git clone https://github.com/sail-sg/MDT
