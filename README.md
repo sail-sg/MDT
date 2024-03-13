@@ -48,6 +48,10 @@ git clone https://github.com/sail-sg/MDT
 cd MDT
 pip install -e .
 ```
+Install [Adan optimizer](https://github.com/sail-sg/Adan), Adan is a strong optimizer with faster convergence speed than AdamW. [(paper)](https://arxiv.org/abs/2208.06677)
+```
+python -m pip install git+https://github.com/sail-sg/Adan.git
+```
 
 **DATA** 
 - For standard datasets like ImageNet and CIFAR, please refer to '[dataset](https://github.com/sail-sg/MDT/tree/main/datasets)' for preparation.
