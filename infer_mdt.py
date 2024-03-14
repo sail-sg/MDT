@@ -24,7 +24,7 @@ model_path = 'mdt_xl2_v2_ckpt.pt'
 image_size = 256
 assert image_size in [256], "We provide pre-trained models for 256x256 resolutions for now."
 latent_size = image_size // 8
-model = MDTv2_XL_2(input_size=latent_size, decode_layer=2).to(device)
+model = MDTv2_XL_2(input_size=latent_size, decode_layer=4).to(device)
 
 state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
 model.load_state_dict(state_dict)
