@@ -67,7 +67,7 @@ as the [ADM's dataloder](https://github.com/openai/guided-diffusion) gets the cl
 export OPENAI_LOGDIR=output_mdtv2_s2
 NUM_GPUS=8
 
-MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 4 --model MDTv2_S_2"
+MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 6 --model MDTv2_S_2"
 DIFFUSION_FLAGS="--diffusion_steps 1000"
 TRAIN_FLAGS="--batch_size 32"
 DATA_PATH=/dataset/imagenet
@@ -83,7 +83,7 @@ python -m torch.distributed.launch --nproc_per_node=$NUM_GPUS scripts/image_trai
 ```shell
 # On master:
 export OPENAI_LOGDIR=output_mdtv2_xl2
-MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDTv2_XL_2"
+MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 4 --model MDTv2_XL_2"
 DIFFUSION_FLAGS="--diffusion_steps 1000"
 TRAIN_FLAGS="--batch_size 4"
 DATA_PATH=/dataset/imagenet
@@ -94,7 +94,7 @@ python -m torch.distributed.launch --master_addr=$(hostname) --nnodes=$NUM_NODE 
 
 # On workers:
 export OPENAI_LOGDIR=output_mdtv2_xl2
-MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 2 --model MDTv2_XL_2"
+MODEL_FLAGS="--image_size 256 --mask_ratio 0.30 --decode_layer 4 --model MDTv2_XL_2"
 DIFFUSION_FLAGS="--diffusion_steps 1000"
 TRAIN_FLAGS="--batch_size 4"
 DATA_PATH=/dataset/imagenet
