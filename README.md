@@ -30,13 +30,13 @@ Experimental results show that MDTv2 achieves superior image synthesis performan
 
 [Pretrained model download](https://huggingface.co/shgao/MDT-XL2/tree/main)
 
-Model is hosted on hugglingface, you can also download it with:
+Model is hosted on huggingface, you can also download it with:
 ```
 from huggingface_hub import snapshot_download
 models_path = snapshot_download("shgao/MDT-XL2")
 ckpt_model_path = os.path.join(models_path, "mdt_xl2_v1_ckpt.pt")
 ```
-A hugglingface demo is on [DEMO](https://huggingface.co/spaces/shgao/MDT).
+A huggingface demo is on [DEMO](https://huggingface.co/spaces/shgao/MDT).
 
 **NEW SOTA on FID.**
 # Setup
